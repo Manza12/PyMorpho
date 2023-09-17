@@ -1,58 +1,72 @@
 from __future__ import annotations
-from collections import Iterable
-from typing import Iterator
-import numpy as np
-
-
-class Shift:
-    def __neg__(self) -> Shift:
-        raise NotImplementedError
-
-
-class Point:
-    def __add__(self, other: Shift) -> Point:
-        raise NotImplementedError
+from . import *
 
 
 class Space(Iterable):
+    def __init__(self):
+        if type(self) == Space:
+            raise NotImplementedError('Space is an abstract class.')
+
+    class Point:
+        def __init__(self):
+            if type(self) == Space.Point:
+                raise NotImplementedError
+
+        def __add__(self, other: Group.Shift) -> Space.Point:
+            raise NotImplementedError
+
     def __iter__(self) -> Iterator[Point]:
         raise NotImplementedError
 
-    @property
-    def dimension(self):
+    def __getitem__(self, point: Space.Point) -> List[int]:
         raise NotImplementedError
 
-    @property
-    def sizes(self):
-        raise NotImplementedError
+    class OutOfBoundsError(Exception):
+        pass
 
 
 class Group(Iterable):
-    def __iter__(self) -> Iterator[Shift]:
+    def __init__(self):
+        if type(self) == Group:
+            raise NotImplementedError('Group is an abstract class.')
+
+    class Shift:
+        def __init__(self):
+            if type(self) == Group.Shift:
+                raise NotImplementedError
+
+        def __neg__(self) -> Group.Shift:
+            raise NotImplementedError
+
+    def __iter__(self) -> Iterator[Group.Shift]:
         raise NotImplementedError
 
-    @property
-    def identity(self) -> Shift:
-        raise NotImplementedError
-
-    @property
-    def dimension(self):
-        raise NotImplementedError
-
-    @property
-    def sizes(self):
-        raise NotImplementedError
-
-
-class Level:
-    def __add__(self, other: Level) -> Level:
-        raise NotImplementedError
-
-    def __sub__(self, other: Level) -> Level:
+    def __getitem__(self, shift: Group.Shift) -> List[int]:
         raise NotImplementedError
 
 
 class Lattice:
+    def __init__(self):
+        if type(self) == Lattice:
+            raise NotImplementedError('Lattice is an abstract class.')
+
+    class Level:
+        def __init__(self):
+            if type(self) == Lattice.Level:
+                raise NotImplementedError
+
+        def __add__(self, other: Lattice.Level) -> Lattice.Level:
+            raise NotImplementedError
+
+        def __sub__(self, other: Lattice.Level) -> Lattice.Level:
+            raise NotImplementedError
+
+        def __le__(self, other: Lattice.Level) -> bool:
+            raise NotImplementedError
+
+        def __lt__(self, other: Lattice.Level) -> bool:
+            return self <= other and self != other
+
     @property
     def bot(self) -> Level:
         raise NotImplementedError
@@ -61,72 +75,35 @@ class Lattice:
     def top(self) -> Level:
         raise NotImplementedError
 
-    @staticmethod
-    def supremum(a: Level, b: Level) -> Level:
-        raise NotImplementedError
-
-    @staticmethod
-    def infimum(a: Level, b: Level) -> Level:
+    def __mul__(self, other: Lattice) -> Lattice:
         raise NotImplementedError
 
 
 class Image:
     def __init__(self, array: np.ndarray, space: Space, lattice: Lattice):
-        # Check dimension
-        assert len(array.shape) == space.dimension, 'Array and space should share dimension.'
-
-        # Check sizes
-        for size_a, size_s in zip(array.shape, space.sizes):
-            assert size_a == size_s, 'Sizes should coincide between array and space'
-
-        # Check lattice
-        for value in array.flat:
-            assert isinstance(value, type(lattice.bot)), 'Array should contain lattice values.'
-
         self.array = array
         self.space = space
         self.lattice = lattice
 
-    def __getitem__(self, point: Point) -> Level:
-        raise NotImplementedError
+    def __getitem__(self, point: Space.Point) -> Lattice.Level:
+        return self.array[tuple(self.space[point])]
 
-    def __setitem__(self, point: Point, value: Level):
-        raise NotImplementedError
+    def __setitem__(self, point: Space.Point, value: Lattice.Level):
+        self.array[tuple(self.space[point])] = value
 
-    @classmethod
-    def bottom_like(cls, image: Image):
-        array = np.empty_like(image.array)
-        for i in range(array.size):
-            array.flat[i] = image.lattice.bot
-        return cls(array, image.space, image.lattice)
-
-    @classmethod
-    def top_like(cls, image: Image):
-        array = np.empty_like(image.array)
-        for i in range(array.size):
-            array.flat[i] = image.lattice.top
-        return cls(array, image.space, image.lattice)
+    def empty_like(self, lattice: Lattice):
+        array = np.empty_like(self.array, dtype=object)
+        return type(self)(array, self.space, lattice)
 
 
 class StructuringElement:
     def __init__(self, array: np.ndarray, group: Group, lattice: Lattice):
-        # Check dimension
-        assert len(array.shape) == group.dimension, 'Array and group should share dimension.'
-
-        # Check sizes
-        for size_a, size_g in zip(array.shape, group.sizes):
-            assert size_a == size_g, 'Sizes should coincide between array and group.'
-
-        # Check lattice
-        for value in array.flat:
-            assert isinstance(value, type(lattice.bot)), 'Array should contain lattice values.'
-
         self.array = array
         self.group = group
         self.lattice = lattice
 
-    def __getitem__(self, shift: Shift) -> Level:
-        raise NotImplementedError
+    def __getitem__(self, shift: Group.Shift) -> Lattice.Level:
+        return self.array[tuple(self.group[shift])]
 
     @classmethod
     def bottom_like(cls, structuring_element: StructuringElement):
@@ -137,25 +114,30 @@ class StructuringElement:
 
 
 def dilation(image: Image, structuring_element: StructuringElement):
-    output = type(image).bottom_like(image)
+    new_lattice = image.lattice * structuring_element.lattice
+    output = image.empty_like(new_lattice)
     for point in image.space:
-        val = image.lattice.bot
+        val = new_lattice.bot
         for shift in structuring_element.group:
-            tmp = image[point + (-shift)] + structuring_element[shift]
-            val = image.lattice.supremum(tmp, val)
+            try:
+                tmp = image[point + (-shift)] + structuring_element[shift]
+            except Space.OutOfBoundsError:
+                continue
+            val = max(tmp, val)
         output[point] = val
     return output
 
 
 def erosion(image: Image, structuring_element: StructuringElement):
-    output = type(image).top_like(image)
+    new_lattice = image.lattice * structuring_element.lattice
+    output = image.empty_like(new_lattice)
     for point in image.space:
-        val = image.lattice.top
+        val = new_lattice.top
         for shift in structuring_element.group:
             try:
                 tmp = image[point + shift] - structuring_element[shift]
-            except AssertionError:
+            except Space.OutOfBoundsError:
                 continue
-            val = image.lattice.infimum(tmp, val)
+            val = min(tmp, val)
         output[point] = val
     return output
