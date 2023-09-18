@@ -2,6 +2,32 @@ from __future__ import annotations
 from . import *
 
 
+class Shift:
+    def __init__(self, value):
+        if type(self) == Shift:
+            raise NotImplementedError
+        else:
+            self._value = value
+
+    @property
+    def value(self):
+        return self._value
+
+    def __neg__(self) -> Shift:
+        raise NotImplementedError
+
+
+class Group(Iterable):
+    def __init__(self, shift_type: Type[Shift]):
+        if type(self) == Group:
+            raise NotImplementedError('Group is an abstract class.')
+        else:
+            self.shift_type = shift_type
+
+    def __iter__(self) -> Iterator[Shift]:
+        raise NotImplementedError
+
+
 class Point:
     def __init__(self, value):
         if type(self) == Point:
@@ -29,32 +55,6 @@ class Space(Iterable):
 
     class OutOfBoundsError(Exception):
         pass
-
-
-class Shift:
-    def __init__(self, value):
-        if type(self) == Shift:
-            raise NotImplementedError
-        else:
-            self._value = value
-
-    @property
-    def value(self):
-        return self._value
-
-    def __neg__(self) -> Shift:
-        raise NotImplementedError
-
-
-class Group(Iterable):
-    def __init__(self, shift_type: Type[Shift]):
-        if type(self) == Group:
-            raise NotImplementedError('Group is an abstract class.')
-        else:
-            self.shift_type = shift_type
-
-    def __iter__(self) -> Iterator[Shift]:
-        raise NotImplementedError
 
 
 class Level:
