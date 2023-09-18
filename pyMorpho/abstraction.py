@@ -99,15 +99,26 @@ class Lattice:
     def __mul__(self, other: Lattice) -> Lattice:
         raise NotImplementedError
 
+    def __truediv__(self, other: Lattice) -> Lattice:
+        raise NotImplementedError
+
+    def __le__(self, other: Lattice) -> bool:
+        raise NotImplementedError
+
+    @staticmethod
+    def supremum(a: Level, b: Level) -> Level:
+        raise NotImplementedError
+
+    @staticmethod
+    def infimum(a: Level, b: Level) -> Level:
+        raise NotImplementedError
+
 
 class Image:
     def __init__(self, array: np.ndarray, space: Space, lattice: Lattice):
-        if type(self) == Image:
-            raise NotImplementedError('Image is an abstract class.')
-        else:
-            self.array = array
-            self.space = space
-            self.lattice = lattice
+        self.array = array
+        self.space = space
+        self.lattice = lattice
 
     def __getitem__(self, point: Point) -> Level:
         raise NotImplementedError
@@ -115,49 +126,42 @@ class Image:
     def __setitem__(self, point: Point, value: Level):
         raise NotImplementedError
 
-    def empty_like(self, lattice: Lattice):
-        array = np.empty_like(self.array, dtype=object)
-        return type(self)(array, self.space, lattice)
-
 
 class StructuringElement:
     def __init__(self, array: np.ndarray, group: Group, lattice: Lattice):
-        if type(self) == StructuringElement:
-            raise NotImplementedError('StructuringElement is an abstract class.')
-        else:
-            self.array = array
-            self.group = group
-            self.lattice = lattice
+        self.array = array
+        self.group = group
+        self.lattice = lattice
 
     def __getitem__(self, shift: Shift) -> Level:
         raise NotImplementedError
 
 
 def dilation(image: Image, structuring_element: StructuringElement):
-    new_lattice = image.lattice * structuring_element.lattice
-    output = image.empty_like(new_lattice)
+    lattice = image.lattice * structuring_element.lattice
+    output = type(image)(np.empty_like(image.array), image.space, lattice)
     for point in image.space:
-        val = new_lattice.bot
+        val = lattice.bot
         for shift in structuring_element.group:
             try:
                 tmp = image[point + (-shift)] + structuring_element[shift]
             except Space.OutOfBoundsError:
                 continue
-            val = max(tmp, val)
+            val = lattice.supremum(tmp, val)
         output[point] = val
     return output
 
 
 def erosion(image: Image, structuring_element: StructuringElement):
-    new_lattice = image.lattice * structuring_element.lattice
-    output = image.empty_like(new_lattice)
+    lattice = image.lattice / structuring_element.lattice
+    output = type(image)(np.empty_like(image.array), image.space, lattice)
     for point in image.space:
-        val = new_lattice.top
+        val = lattice.top
         for shift in structuring_element.group:
             try:
                 tmp = image[point + shift] - structuring_element[shift]
             except Space.OutOfBoundsError:
                 continue
-            val = min(tmp, val)
+            val = lattice.infimum(tmp, val)
         output[point] = val
     return output

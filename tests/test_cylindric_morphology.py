@@ -15,7 +15,7 @@ chroma_roll = ChromaRoll(RhythmicLattice.array_to_lattice(np.flip(np.array([
     [0, 0, 2, 1, 2, 1, 0, 0],
     [0, 0, 0, 0, 0, 0, 0, 0],
     [2, 1, 0, 0, 0, 0, 2, 1],
-]), axis=0)), RhythmicLattice())
+]), axis=0)), None, RhythmicLattice())
 
 major_chord = ChromaRollPattern(RhythmicLattice.array_to_lattice(np.flip(np.array([
     [0, 0],

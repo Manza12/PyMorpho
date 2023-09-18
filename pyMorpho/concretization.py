@@ -41,6 +41,12 @@ class BooleanLattice(Lattice):
     def __mul__(self, other: Lattice) -> Lattice:
         return other
 
+    def infimum(self, a: Level, b: Level) -> Level:
+        return BooleanLevel(a.value and b.value)
+
+    def supremum(self, a: Level, b: Level) -> Level:
+        return BooleanLevel(a.value or b.value)
+
 
 class RhythmicLevel(Level):
     def __init__(self, value: int):
@@ -90,6 +96,22 @@ class RhythmicLattice(Lattice):
             return BooleanLattice()
         else:
             raise NotImplementedError
+
+    def __truediv__(self, other: RhythmicLattice) -> BooleanLattice:
+        assert isinstance(other, RhythmicLattice)
+        return BooleanLattice()
+
+    @staticmethod
+    def supremum(a: RhythmicLevel, b: RhythmicLevel) -> RhythmicLevel:
+        assert isinstance(a, RhythmicLevel)
+        assert isinstance(b, RhythmicLevel)
+        return RhythmicLevel(max(a.value, b.value))
+
+    @staticmethod
+    def infimum(a: RhythmicLevel, b: RhythmicLevel) -> RhythmicLevel:
+        assert isinstance(a, RhythmicLevel)
+        assert isinstance(b, RhythmicLevel)
+        return RhythmicLevel(min(a.value, b.value))
 
     @staticmethod
     def array_to_lattice(array: np.ndarray) -> np.ndarray:
@@ -292,7 +314,7 @@ class ProductSpace(Space):
 
 # Images
 class ChromaRoll(Image):
-    def __init__(self, array: np.ndarray, lattice: Lattice):
+    def __init__(self, array: np.ndarray, _, lattice: Lattice):
         assert len(array.shape) == 2
         assert array.shape[0] == 12
         super().__init__(array, Circle(12) * Line(array.shape[1]), lattice)
@@ -308,9 +330,6 @@ class ChromaRoll(Image):
     def __setitem__(self, point: Point, value: Level):
         assert isinstance(point, ProductPoint)
         self.array[point.point_1.value, point.point_2.value] = value
-
-    def empty_like(self, lattice: Lattice):
-        return ChromaRoll(np.empty_like(self.array, dtype=object), lattice)
 
 
 class ChromaRollPattern(StructuringElement):
