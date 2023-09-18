@@ -1,98 +1,89 @@
 from __future__ import annotations
 from . import *
-from .abstraction import Space, Lattice, Group
+from .abstraction import Space, Point, Lattice, Level, Group, Shift
 
 
 # Lattices
+class BooleanLevel(Level):
+    def __init__(self, value: bool):
+        super().__init__(value)
+
+    def __le__(self, other: BooleanLevel) -> bool:
+        assert isinstance(other, BooleanLevel)
+        return self.value <= other.value
+
+    def __add__(self, other: Level) -> Level:
+        return other + self
+
+    def __sub__(self, other: Level) -> Level:
+        raise NotImplementedError
+
+    def __str__(self):
+        if self.value:
+            return '1'
+        else:
+            return '0'
+
+
 class BooleanLattice(Lattice):
 
     def __init__(self):
-        super().__init__()
-
-    class Level(Lattice.Level):
-
-        def __init__(self, value: bool):
-            super().__init__()
-            self._value = value
-
-        @property
-        def value(self):
-            return self._value
-
-        def __le__(self, other: BooleanLattice.Level) -> bool:
-            assert isinstance(other, BooleanLattice.Level)
-            return self.value <= other.value
-
-        def __add__(self, other: Lattice.Level) -> Lattice.Level:
-            return other + self
-
-        def __sub__(self, other: Lattice.Level) -> Lattice.Level:
-            raise NotImplementedError
-
-        def __str__(self):
-            if self.value:
-                return '1'
-            else:
-                return '0'
+        super().__init__(BooleanLevel)
 
     @property
-    def bot(self) -> BooleanLattice.Level:
-        return BooleanLattice.Level(False)
+    def bot(self) -> Level:
+        return self.level_type(False)
 
     @property
-    def top(self) -> BooleanLattice.Level:
-        return BooleanLattice.Level(True)
+    def top(self) -> Level:
+        return self.level_type(True)
 
     def __mul__(self, other: Lattice) -> Lattice:
         return other
 
 
+class RhythmicLevel(Level):
+    def __init__(self, value: int):
+        super().__init__(value)
+
+    def __add__(self, other: BooleanLevel) -> RhythmicLevel:
+        if other.value:
+            return self
+        else:
+            return RhythmicLevel(0)
+
+    def __sub__(self, other: RhythmicLevel) -> BooleanLevel:
+        if self >= other:
+            return BooleanLevel(True)
+        else:
+            return BooleanLevel(False)
+
+    def __le__(self, other: RhythmicLevel) -> bool:
+        assert isinstance(other, RhythmicLevel)
+        return self.value <= other.value
+
+    def __str__(self):
+        if self.value == 0:
+            return '-'
+        elif self.value == 1:
+            return '·'
+        elif self.value == 2:
+            return 'x'
+        else:
+            raise ValueError
+
+
 class RhythmicLattice(Lattice):
     def __init__(self):
-        super().__init__()
-
-    class Level(Lattice.Level):
-        def __init__(self, value: int):
-            super().__init__()
-            self._value = value
-
-        @property
-        def value(self):
-            return self._value
-
-        def __add__(self, other: BooleanLattice.Level) -> RhythmicLattice.Level:
-            if other.value:
-                return self
-            else:
-                return RhythmicLattice.Level(0)
-
-        def __sub__(self, other: RhythmicLattice.Level) -> BooleanLattice.Level:
-            if self >= other:
-                return BooleanLattice.Level(True)
-            else:
-                return BooleanLattice.Level(False)
-
-        def __le__(self, other: RhythmicLattice.Level) -> bool:
-            assert isinstance(other, RhythmicLattice.Level)
-            return self.value <= other.value
-
-        def __str__(self):
-            if self.value == 0:
-                return '-'
-            elif self.value == 1:
-                return '·'
-            elif self.value == 2:
-                return 'x'
-            else:
-                raise ValueError
+        super().__init__(RhythmicLevel)
 
     @property
-    def bot(self) -> RhythmicLattice.Level:
-        return RhythmicLattice.Level(0)
+    def bot(self) -> Level:
+        return RhythmicLevel(0)
 
     @property
-    def top(self) -> RhythmicLattice.Level:
-        return RhythmicLattice.Level(2)
+    def top(self) -> RhythmicLevel:
+        return RhythmicLevel(2)
 
     def __mul__(self, other: Lattice) -> Lattice:
         if isinstance(other, RhythmicLattice):
@@ -103,226 +94,205 @@ class RhythmicLattice(Lattice):
     @staticmethod
     def array_to_lattice(array: np.ndarray) -> np.ndarray:
         new_array = np.empty_like(array, dtype=object)
-        for i in range(array.size):
-            new_array.flat[i] = RhythmicLattice.Level(array.flat[i])
+        for index in np.ndindex(*array.shape):
+            new_array[index] = RhythmicLevel(array[index])
         return new_array
 
 
 # Groups
+class ZShift(Shift):
+
+    def __init__(self, value: int):
+        super().__init__(value)
+
+    def __neg__(self) -> Shift:
+        return ZShift(-self.value)
+
+    def __str__(self):
+        return '{0:+}'.format(self.value)
+
+
 class Z(Group):
 
     def __init__(self, n: int):
-        super().__init__()
+        super().__init__(ZShift)
         self._n = n
 
-    class Shift(Group.Shift):
-
-        def __init__(self, value: int):
-            super().__init__()
-            self._value = value
-
-        @property
-        def value(self):
-            return self._value
-
-        def __neg__(self) -> Group.Shift:
-            return Z.Shift(-self.value)
-
-        def __str__(self):
-            return '{0:+}'.format(self.value)
-
-    def __iter__(self) -> Iterator[Group.Shift]:
+    def __iter__(self) -> Iterator[Shift]:
         for i in range(self._n):
-            yield Z.Shift(i)
+            element = self.shift_type(i)
+            yield element
 
-    def __mul__(self, other: Group) -> GroupProduct:
+    def __mul__(self, other: Group) -> ProductGroup:
         assert isinstance(other, Group)
-        return GroupProduct(self, other)
+        return ProductGroup(self, other)
 
-    def __getitem__(self, shift: Z.Shift) -> List[int]:
-        assert isinstance(shift, Z.Shift)
+    def __getitem__(self, shift: ZShift) -> List[int]:
+        assert isinstance(shift, ZShift)
         return [shift.value]
+
+
+class TShift(Shift):
+
+    def __init__(self, value: int):
+        super().__init__(value % 12)
+
+    def __neg__(self) -> TShift:
+        return TShift(-self.value)
+
+    def __str__(self):
+        return '{0:+}'.format(self.value)
 
 
 class T(Group):
     def __init__(self, n: int):
-        super().__init__()
+        super().__init__(TShift)
         self._n = n
 
-    class Shift(Group.Shift):
-
-        def __init__(self, value: int):
-            super().__init__()
-            self._value = value % 12
-
-        @property
-        def value(self):
-            return self._value
-
-        def __neg__(self) -> Group.Shift:
-            return T.Shift(-self.value)
-
-        def __str__(self):
-            return '{0:+}'.format(self.value)
-
-    def __iter__(self) -> Iterator[Group.Shift]:
+    def __iter__(self) -> Iterator[TShift]:
         for i in range(self._n):
-            yield T.Shift(i)
+            yield self.shift_type(i)
 
-    def __mul__(self, other: Group) -> GroupProduct:
+    def __mul__(self, other: Group) -> ProductGroup:
         assert isinstance(other, Group)
-        return GroupProduct(self, other)
+        return ProductGroup(self, other)
 
-    def __getitem__(self, shift: T.Shift) -> List[int]:
-        assert isinstance(shift, T.Shift)
+    def __getitem__(self, shift: TShift) -> List[int]:
+        assert isinstance(shift, TShift)
         return [shift.value]
 
 
-class GroupProduct(Group):
+class ProductShift(Shift):
+    def __init__(self, shift_1: Shift, shift_2: Shift):
+        super().__init__((shift_1, shift_2))
+
+    @property
+    def shift_1(self):
+        return self.value[0]
+
+    @property
+    def shift_2(self):
+        return self.value[1]
+
+    def __neg__(self) -> ProductShift:
+        return ProductShift(-self.shift_1, -self.shift_2)
+
+    def __str__(self):
+        return '({0}, {1})'.format(self.shift_1, self.shift_2)
+
+
+class ProductGroup(Group):
     def __init__(self, group_1: Group, group_2: Group):
-        super().__init__()
+        super().__init__(ProductShift)
         self._group_1 = group_1
         self._group_2 = group_2
 
-    class Shift(Group.Shift):
-
-        def __init__(self, shift_1: Group.Shift, shift_2: Group.Shift):
-            super().__init__()
-            self._shift_1 = shift_1
-            self._shift_2 = shift_2
-
-        @property
-        def shift_1(self):
-            return self._shift_1
-
-        @property
-        def shift_2(self):
-            return self._shift_2
-
-        def __neg__(self) -> Group.Shift:
-            return GroupProduct.Shift(-self.shift_1, -self.shift_2)
-
-        def __str__(self):
-            return '({0}, {1})'.format(self.shift_1, self.shift_2)
-
-    def __iter__(self) -> Iterator[Group.Shift]:
+    def __iter__(self) -> Iterator[ProductShift]:
         for shift_1 in self._group_1:
             for shift_2 in self._group_2:
-                yield GroupProduct.Shift(shift_1, shift_2)
+                yield ProductShift(shift_1, shift_2)
 
-    def __getitem__(self, shift: GroupProduct.Shift) -> List[int]:
-        assert isinstance(shift, GroupProduct.Shift)
+    def __getitem__(self, shift: ProductShift) -> List[int]:
+        assert isinstance(shift, ProductShift)
         return self._group_1[shift.shift_1] + self._group_2[shift.shift_2]
 
 
 # Spaces
-class Line(Space):
+class LinePoint(Point):
 
+    def __init__(self, value: int):
+        super().__init__(value)
+
+    def __add__(self, other: ZShift) -> LinePoint:
+        assert isinstance(other, ZShift)
+        return LinePoint(self.value + other.value)
+
+    def __str__(self):
+        return str(self.value)
+
+
+class Line(Space):
     def __init__(self, n: int):
-        super().__init__()
+        super().__init__(LinePoint)
         self._n = n
 
-    class Point(Space.Point):
-
-        def __init__(self, value: int):
-            super().__init__()
-            self._value = value
-
-        @property
-        def value(self):
-            return self._value
-
-        def __add__(self, other: Z.Shift) -> Line.Point:
-            assert isinstance(other, Z.Shift)
-            return Line.Point(self.value + other.value)
-
-        def __str__(self):
-            return str(self.value)
-
-    def __iter__(self) -> Iterator[Line.Point]:
+    def __iter__(self) -> Iterator[LinePoint]:
         for i in range(self._n):
-            yield Line.Point(i)
+            yield LinePoint(i)
 
-    def __getitem__(self, point: Line.Point) -> List[int]:
-        assert isinstance(point, Line.Point)
+    def __getitem__(self, point: LinePoint) -> List[int]:
+        assert isinstance(point, LinePoint)
         if not 0 <= point.value < self._n:
             raise Space.OutOfBoundsError()
         return [point.value]
 
-    def __mul__(self, other: Space) -> SpaceProduct:
+    def __mul__(self, other: Space) -> ProductSpace:
         assert isinstance(other, Space)
-        return SpaceProduct(self, other)
+        return ProductSpace(self, other)
+
+
+class CirclePoint(Point):
+    def __init__(self, value: int):
+        super().__init__(value % 12)
+
+    def __add__(self, other: TShift) -> CirclePoint:
+        assert isinstance(other, TShift)
+        return CirclePoint(self.value + other.value)
+
+    def __str__(self):
+        return str(self.value)
 
 
 class Circle(Space):
 
     def __init__(self, n: int):
-        super().__init__()
+        super().__init__(CirclePoint)
         self._n = n
 
-    class Point(Space.Point):
-
-        def __init__(self, value: int):
-            super().__init__()
-            self._value = value % 12
-
-        @property
-        def value(self):
-            return self._value
-
-        def __add__(self, other: T.Shift) -> Circle.Point:
-            assert isinstance(other, T.Shift)
-            return Circle.Point(self.value + other.value)
-
-        def __str__(self):
-            return str(self.value)
-
-    def __iter__(self) -> Iterator[Circle.Point]:
+    def __iter__(self) -> Iterator[CirclePoint]:
         for i in range(self._n):
-            yield self.Point(i)
+            yield self.point_type(i)
 
-    def __getitem__(self, point: Circle.Point) -> List[int]:
-        assert isinstance(point, Circle.Point)
+    def __getitem__(self, point: CirclePoint) -> List[int]:
+        assert isinstance(point, CirclePoint)
         return [point.value]
 
-    def __mul__(self, other: Space) -> SpaceProduct:
+    def __mul__(self, other: Space) -> ProductSpace:
         assert isinstance(other, Space)
-        return SpaceProduct(self, other)
+        return ProductSpace(self, other)
 
 
-class SpaceProduct(Space):
+class ProductPoint(Point):
+    def __init__(self, point_1: Point, point_2: Point):
+        super().__init__((point_1, point_2))
+
+    @property
+    def point_1(self):
+        return self.value[0]
+
+    @property
+    def point_2(self):
+        return self.value[1]
+
+    def __add__(self, other: ProductShift) -> ProductPoint:
+        assert isinstance(other, ProductShift)
+        return ProductPoint(self.point_1 + other.shift_1, self.point_2 + other.shift_2)
+
+    def __str__(self):
+        return '({0}, {1})'.format(self.point_1, self.point_2)
+
+
+class ProductSpace(Space):
     def __init__(self, space_1: Space, space_2: Space):
-        super().__init__()
+        super().__init__(ProductPoint)
         self._space_1 = space_1
         self._space_2 = space_2
 
-    class Point(Space.Point):
-
-        def __init__(self, point_1: Space.Point, point_2: Space.Point):
-            super().__init__()
-            self._point_1 = point_1
-            self._point_2 = point_2
-
-        @property
-        def point_1(self):
-            return self._point_1
-
-        @property
-        def point_2(self):
-            return self._point_2
-
-        def __add__(self, other: GroupProduct.Shift) -> SpaceProduct.Point:
-            assert isinstance(other, GroupProduct.Shift)
-            return SpaceProduct.Point(self._point_1 + other.shift_1, self._point_2 + other.shift_2)
-
-        def __str__(self):
-            return '({0}, {1})'.format(self.point_1, self.point_2)
-
-    def __iter__(self) -> Iterator[Group.Shift]:
+    def __iter__(self) -> Iterator[ProductPoint]:
         for point_1 in self._space_1:
             for point_2 in self._space_2:
-                yield SpaceProduct.Point(point_1, point_2)
+                yield ProductPoint(point_1, point_2)
 
-    def __getitem__(self, point: SpaceProduct.Point) -> List[int]:
-        assert isinstance(point, SpaceProduct.Point)
+    def __getitem__(self, point: ProductPoint) -> List[int]:
+        assert isinstance(point, ProductPoint)
         return self._space_1[point.point_1] + self._space_2[point.point_2]

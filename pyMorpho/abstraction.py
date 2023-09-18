@@ -2,70 +2,97 @@ from __future__ import annotations
 from . import *
 
 
+class Point:
+    def __init__(self, value):
+        if type(self) == Point:
+            raise NotImplementedError
+        else:
+            self._value = value
+
+    @property
+    def value(self):
+        return self._value
+
+    def __add__(self, other: Shift) -> Point:
+        raise NotImplementedError
+
+
 class Space(Iterable):
-    def __init__(self):
+    def __init__(self, point_type: Type[Point]):
         if type(self) == Space:
             raise NotImplementedError('Space is an abstract class.')
-
-    class Point:
-        def __init__(self):
-            if type(self) == Space.Point:
-                raise NotImplementedError
-
-        def __add__(self, other: Group.Shift) -> Space.Point:
-            raise NotImplementedError
+        else:
+            self.point_type = point_type
 
     def __iter__(self) -> Iterator[Point]:
         raise NotImplementedError
 
-    def __getitem__(self, point: Space.Point) -> List[int]:
+    def __getitem__(self, point: Point) -> List[int]:
         raise NotImplementedError
 
     class OutOfBoundsError(Exception):
         pass
 
 
+class Shift:
+    def __init__(self, value):
+        if type(self) == Shift:
+            raise NotImplementedError
+        else:
+            self._value = value
+
+    @property
+    def value(self):
+        return self._value
+
+    def __neg__(self) -> Shift:
+        raise NotImplementedError
+
+
 class Group(Iterable):
-    def __init__(self):
+    def __init__(self, shift_type: Type[Shift]):
         if type(self) == Group:
             raise NotImplementedError('Group is an abstract class.')
+        else:
+            self.shift_type = shift_type
 
-    class Shift:
-        def __init__(self):
-            if type(self) == Group.Shift:
-                raise NotImplementedError
+    def __iter__(self) -> Iterator[Shift]:
+        raise NotImplementedError
 
-        def __neg__(self) -> Group.Shift:
+    def __getitem__(self, shift: Shift) -> List[int]:
+        raise NotImplementedError
+
+
+class Level:
+    def __init__(self, value):
+        if type(self) == Level:
             raise NotImplementedError
+        else:
+            self._value = value
 
-    def __iter__(self) -> Iterator[Group.Shift]:
+    @property
+    def value(self):
+        return self._value
+
+    def __add__(self, other: Level) -> Level:
         raise NotImplementedError
 
-    def __getitem__(self, shift: Group.Shift) -> List[int]:
+    def __sub__(self, other: Level) -> Level:
         raise NotImplementedError
+
+    def __le__(self, other: Level) -> bool:
+        raise NotImplementedError
+
+    def __lt__(self, other: Level) -> bool:
+        return self <= other and self != other
 
 
 class Lattice:
-    def __init__(self):
+    def __init__(self, level_type: Type[Level]):
         if type(self) == Lattice:
             raise NotImplementedError('Lattice is an abstract class.')
-
-    class Level:
-        def __init__(self):
-            if type(self) == Lattice.Level:
-                raise NotImplementedError
-
-        def __add__(self, other: Lattice.Level) -> Lattice.Level:
-            raise NotImplementedError
-
-        def __sub__(self, other: Lattice.Level) -> Lattice.Level:
-            raise NotImplementedError
-
-        def __le__(self, other: Lattice.Level) -> bool:
-            raise NotImplementedError
-
-        def __lt__(self, other: Lattice.Level) -> bool:
-            return self <= other and self != other
+        else:
+            self.level_type = level_type
 
     @property
     def bot(self) -> Level:
@@ -85,10 +112,10 @@ class Image:
         self.space = space
         self.lattice = lattice
 
-    def __getitem__(self, point: Space.Point) -> Lattice.Level:
+    def __getitem__(self, point: Point) -> Level:
         return self.array[tuple(self.space[point])]
 
-    def __setitem__(self, point: Space.Point, value: Lattice.Level):
+    def __setitem__(self, point: Point, value: Level):
         self.array[tuple(self.space[point])] = value
 
     def empty_like(self, lattice: Lattice):
@@ -102,15 +129,8 @@ class StructuringElement:
         self.group = group
         self.lattice = lattice
 
-    def __getitem__(self, shift: Group.Shift) -> Lattice.Level:
+    def __getitem__(self, shift: Shift) -> Level:
         return self.array[tuple(self.group[shift])]
-
-    @classmethod
-    def bottom_like(cls, structuring_element: StructuringElement):
-        array = np.empty_like(structuring_element.array)
-        for i in range(array.size):
-            array.flat[i] = structuring_element.lattice.bot
-        return cls(array, structuring_element.group, structuring_element.lattice)
 
 
 def dilation(image: Image, structuring_element: StructuringElement):
