@@ -1,9 +1,8 @@
 from pyMorpho import np
-from pyMorpho.abstraction import Image, StructuringElement, erosion, dilation
-from pyMorpho.concretization import Line, Circle, Z, T, RhythmicLattice
+from pyMorpho.abstraction import erosion, dilation
+from pyMorpho.concretization import RhythmicLattice, ChromaRoll, ChromaRollPattern
 
-rhythmic_lattice = RhythmicLattice()
-chroma_roll = Image(rhythmic_lattice.array_to_lattice(np.flip(np.array([
+chroma_roll = ChromaRoll(RhythmicLattice.array_to_lattice(np.flip(np.array([
     [0, 0, 0, 0, 2, 1, 0, 0],
     [0, 0, 0, 0, 0, 0, 0, 0],
     [0, 0, 0, 0, 0, 0, 0, 0],
@@ -16,9 +15,9 @@ chroma_roll = Image(rhythmic_lattice.array_to_lattice(np.flip(np.array([
     [0, 0, 2, 1, 2, 1, 0, 0],
     [0, 0, 0, 0, 0, 0, 0, 0],
     [2, 1, 0, 0, 0, 0, 2, 1],
-]), axis=0)), Circle(12) * Line(8), rhythmic_lattice)
+]), axis=0)), RhythmicLattice())
 
-major_chord = StructuringElement(rhythmic_lattice.array_to_lattice(np.flip(np.array([
+major_chord = ChromaRollPattern(RhythmicLattice.array_to_lattice(np.flip(np.array([
     [0, 0],
     [0, 0],
     [0, 0],
@@ -31,7 +30,7 @@ major_chord = StructuringElement(rhythmic_lattice.array_to_lattice(np.flip(np.ar
     [0, 0],
     [0, 0],
     [2, 1],
-]), axis=0)), T(12) * Z(2), rhythmic_lattice)
+]), axis=0)))
 
 activations = erosion(chroma_roll, major_chord)
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from . import *
-from .abstraction import Space, Point, Lattice, Level, Group, Shift
+from .abstraction import Space, Point, Lattice, Level, Group, Shift, Image, StructuringElement
 
 
 # Lattices
@@ -192,10 +192,6 @@ class ProductGroup(Group):
             for shift_2 in self._group_2:
                 yield ProductShift(shift_1, shift_2)
 
-    def __getitem__(self, shift: ProductShift) -> List[int]:
-        assert isinstance(shift, ProductShift)
-        return self._group_1[shift.shift_1] + self._group_2[shift.shift_2]
-
 
 # Spaces
 class LinePoint(Point):
@@ -293,6 +289,36 @@ class ProductSpace(Space):
             for point_2 in self._space_2:
                 yield ProductPoint(point_1, point_2)
 
-    def __getitem__(self, point: ProductPoint) -> List[int]:
+
+# Images
+class ChromaRoll(Image):
+    def __init__(self, array: np.ndarray, lattice: Lattice):
+        assert len(array.shape) == 2
+        assert array.shape[0] == 12
+        super().__init__(array, Circle(12) * Line(array.shape[1]), lattice)
+
+    def __getitem__(self, point: Point) -> Level:
         assert isinstance(point, ProductPoint)
-        return self._space_1[point.point_1] + self._space_2[point.point_2]
+        if not 0 <= point.point_1.value < 12:
+            raise Space.OutOfBoundsError()
+        elif not 0 <= point.point_2.value < self.array.shape[1]:
+            raise Space.OutOfBoundsError()
+        return self.array[point.point_1.value, point.point_2.value]
+
+    def __setitem__(self, point: Point, value: Level):
+        assert isinstance(point, ProductPoint)
+        self.array[point.point_1.value, point.point_2.value] = value
+
+    def empty_like(self, lattice: Lattice):
+        return ChromaRoll(np.empty_like(self.array, dtype=object), lattice)
+
+
+class ChromaRollPattern(StructuringElement):
+    def __init__(self, array: np.ndarray):
+        assert len(array.shape) == 2
+        assert array.shape[0] == 12
+        super().__init__(array, T(12) * Z(array.shape[1]), RhythmicLattice())
+
+    def __getitem__(self, shift: Shift) -> RhythmicLevel:
+        assert isinstance(shift, ProductShift)
+        return self.array[shift.shift_1.value, shift.shift_2.value]

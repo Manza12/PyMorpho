@@ -27,9 +27,6 @@ class Space(Iterable):
     def __iter__(self) -> Iterator[Point]:
         raise NotImplementedError
 
-    def __getitem__(self, point: Point) -> List[int]:
-        raise NotImplementedError
-
     class OutOfBoundsError(Exception):
         pass
 
@@ -57,9 +54,6 @@ class Group(Iterable):
             self.shift_type = shift_type
 
     def __iter__(self) -> Iterator[Shift]:
-        raise NotImplementedError
-
-    def __getitem__(self, shift: Shift) -> List[int]:
         raise NotImplementedError
 
 
@@ -108,15 +102,18 @@ class Lattice:
 
 class Image:
     def __init__(self, array: np.ndarray, space: Space, lattice: Lattice):
-        self.array = array
-        self.space = space
-        self.lattice = lattice
+        if type(self) == Image:
+            raise NotImplementedError('Image is an abstract class.')
+        else:
+            self.array = array
+            self.space = space
+            self.lattice = lattice
 
     def __getitem__(self, point: Point) -> Level:
-        return self.array[tuple(self.space[point])]
+        raise NotImplementedError
 
     def __setitem__(self, point: Point, value: Level):
-        self.array[tuple(self.space[point])] = value
+        raise NotImplementedError
 
     def empty_like(self, lattice: Lattice):
         array = np.empty_like(self.array, dtype=object)
@@ -125,12 +122,15 @@ class Image:
 
 class StructuringElement:
     def __init__(self, array: np.ndarray, group: Group, lattice: Lattice):
-        self.array = array
-        self.group = group
-        self.lattice = lattice
+        if type(self) == StructuringElement:
+            raise NotImplementedError('StructuringElement is an abstract class.')
+        else:
+            self.array = array
+            self.group = group
+            self.lattice = lattice
 
     def __getitem__(self, shift: Shift) -> Level:
-        return self.array[tuple(self.group[shift])]
+        raise NotImplementedError
 
 
 def dilation(image: Image, structuring_element: StructuringElement):
